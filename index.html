@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Remotely Operated Rescue Boat — FPV Water Rescue System</title>
+  <meta name="description" content="Design and Development of a Remotely Operated Rescue Boat with FPV Camera System for Water Rescue Operations." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2244%22 fill=%22none%22 stroke=%22%232FA7FF%22 stroke-width=%228%22/><circle cx=%2250%22 cy=%2250%22 r=%2222%22 fill=%22%232FA7FF%22/></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Inter:wght@300..700&family=JetBrains+Mono:wght@300..600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+
+  <!-- ================= LOADING SCREEN ================= -->
+  <div id="loading-screen" aria-hidden="true">
+    <div class="loading-mark">
+      <svg viewBox="0 0 120 120" class="loading-ring">
+        <circle cx="60" cy="60" r="52" class="loading-ring-track" />
+        <circle cx="60" cy="60" r="52" class="loading-ring-fill" id="loading-ring-fill" />
+      </svg>
+      <span class="loading-percent" id="loading-percent">0%</span>
+    </div>
+    <p class="loading-label">CALIBRATING SYSTEMS</p>
+    <p class="loading-sub">Hull &nbsp;•&nbsp; Propulsion &nbsp;•&nbsp; FPV Uplink &nbsp;•&nbsp; Telemetry</p>
+  </div>
+
+  <!-- ================= 3D BACKGROUND CANVAS ================= -->
+  <canvas id="scene-canvas"></canvas>
+
+  <!-- ================= AMBIENT PARTICLE / WATER OVERLAY ================= -->
+  <div class="water-caustics" aria-hidden="true"></div>
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- ================= SONAR / HUD SIGNATURE ELEMENT ================= -->
+  <div id="sonar-hud" aria-hidden="true">
+    <svg viewBox="0 0 200 200" id="sonar-svg">
+      <circle cx="100" cy="100" r="96" class="sonar-ring sonar-ring-outer"/>
+      <circle cx="100" cy="100" r="70" class="sonar-ring"/>
+      <circle cx="100" cy="100" r="44" class="sonar-ring"/>
+      <line x1="100" y1="4" x2="100" y2="196" class="sonar-cross"/>
+      <line x1="4" y1="100" x2="196" y2="100" class="sonar-cross"/>
+      <g id="sonar-sweep-group">
+        <path d="M100,100 L100,4 A96,96 0 0,1 165.9,34.1 Z" id="sonar-sweep" />
+      </g>
+      <g id="sonar-blips"></g>
+    </svg>
+    <div class="sonar-readout">
+      <span class="sonar-readout-label">SECTION</span>
+      <span class="sonar-readout-value" id="sonar-readout-value">00</span>
+      <span class="sonar-readout-total">/ 18</span>
+    </div>
+  </div>
+
+  <!-- ================= TOP PROGRESS BAR ================= -->
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+
+  <!-- ================= SIDE DOT NAVIGATION ================= -->
+  <nav id="side-nav" aria-label="Presentation sections"></nav>
+
+  <!-- ================= FLOATING CONTROL BAR ================= -->
+  <div id="control-bar">
+    <button class="ctrl-btn" id="btn-prev" title="Previous section (↑)" aria-label="Previous section">
+      <svg viewBox="0 0 24 24"><path d="M12 5 L19 13 L16.5 15.2 L12 10.2 L7.5 15.2 L5 13 Z"/></svg>
+    </button>
+    <div class="ctrl-timer" id="presentation-timer" title="Presentation time elapsed">00:00</div>
+    <button class="ctrl-btn" id="btn-next" title="Next section (↓)" aria-label="Next section">
+      <svg viewBox="0 0 24 24"><path d="M12 19 L5 11 L7.5 8.8 L12 13.8 L16.5 8.8 L19 11 Z"/></svg>
+    </button>
+    <div class="ctrl-divider"></div>
+    <button class="ctrl-btn" id="btn-autoplay" title="Toggle auto-presentation" aria-label="Toggle auto-presentation">
+      <svg viewBox="0 0 24 24" id="icon-autoplay"><path d="M8 5 L19 12 L8 19 Z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btn-audio" title="Toggle ambient audio" aria-label="Toggle ambient audio">
+      <svg viewBox="0 0 24 24" id="icon-audio"><path d="M4 9 H8 L13 4 V20 L8 15 H4 Z"/><path class="audio-wave" d="M16 8 Q19.5 12 16 16" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">
+      <svg viewBox="0 0 24 24"><path d="M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"/></svg>
+    </button>
+  </div>
+
+  <!-- ================= LANDING HERO ================= -->
+  <header id="landing">
+    <div class="landing-inner">
+      <p class="landing-eyebrow">GRADUATION PROJECT &nbsp;·&nbsp; MARINE ROBOTICS &nbsp;·&nbsp; 2026</p>
+      <h1 class="landing-title">
+        <span class="line">REMOTELY OPERATED</span>
+        <span class="line landing-title-accent">RESCUE BOAT</span>
+        <span class="line landing-title-sub">WITH FPV CAMERA SYSTEM</span>
+      </h1>
+      <p class="landing-subtitle">
+        A tele-operated surface vessel built to reach a drowning victim in seconds,
+        stream a first-person view back to the rescuer, and hold the line
+        until it's safe to bring everyone home.
+      </p>
+      <button id="start-btn" class="start-btn">
+        <span class="start-btn-glow"></span>
+        <span class="start-btn-label">Start Presentation</span>
+        <span class="start-btn-icon">
+          <svg viewBox="0 0 24 24"><path d="M6 12 H18 M12 6 L18 12 L12 18"/></svg>
+        </span>
+      </button>
+      <div class="landing-scroll-hint">
+        <span></span>
+        <p>Scroll or press Start</p>
+      </div>
+    </div>
+    <div class="landing-vignette"></div>
+  </header>
+
+  <!-- ================= PRESENTATION SECTIONS ================= -->
+  <main id="presentation">
+
+    <!-- 01 — INTRODUCTION -->
+    <section class="slide" id="introduction" data-index="1" data-title="Introduction" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">01 / 18 — Introduction</p>
+        <h2 class="slide-title">A rescuer that never gets tired, never hesitates, and never has to swim into danger first.</h2>
+        <p class="slide-body">
+          Every year, drowning incidents at beaches, rivers, dams, and flood zones put untrained
+          bystanders and first responders at direct risk the moment they enter the water themselves.
+          This project presents a remotely operated rescue boat — a compact, battery-powered surface
+          vessel controlled from shore, fitted with a live FPV (first-person-view) camera link, that
+          can be launched in seconds and driven directly to a person in distress without a human
+          rescuer ever leaving dry ground.
+        </p>
+        <p class="slide-body">
+          The system combines marine hull design, twin-motor propulsion, a radio control link,
+          and a real-time video downlink into a single low-cost platform intended for lifeguard
+          stations, disaster-response teams, and coastal safety units.
+        </p>
+        <div class="spec-grid">
+          <div class="spec-item"><span class="spec-value">&lt; 15s</span><span class="spec-label">Launch to deployment</span></div>
+          <div class="spec-item"><span class="spec-value">Live</span><span class="spec-label">FPV video downlink</span></div>
+          <div class="spec-item"><span class="spec-value">Zero</span><span class="spec-label">Rescuers in the water</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 — PROBLEM STATEMENT -->
+    <section class="slide" id="problem" data-index="2" data-title="Problem Statement" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">02 / 18 — Problem Statement</p>
+        <h2 class="slide-title">The most dangerous part of a water rescue is often the rescuer entering the water.</h2>
+        <p class="slide-body">
+          Manual water rescues expose responders to the same currents, fatigue, and panic-driven
+          grabbing that endangered the original victim — a well-documented cause of secondary
+          drowning incidents involving would-be rescuers. Response time is also constrained by
+          how quickly a trained swimmer can reach the scene, and visibility from shore drops
+          sharply in choppy water, at night, or across long distances.
+        </p>
+        <ul class="bullet-list">
+          <li>Rescuers face direct physical risk entering unpredictable water conditions.</li>
+          <li>Line-of-sight observation from shore is unreliable at range or in low light.</li>
+          <li>Boat-based rescue crews require staffing, fuel, and response coordination time.</li>
+          <li>Existing rescue equipment (buoys, ropes) has limited reach and no active propulsion.</li>
+        </ul>
+        <p class="slide-body slide-body-strong">
+          This project asks: can a small, inexpensive, remotely piloted vessel close that gap
+          between "someone is drowning" and "help has arrived"?
+        </p>
+      </div>
+    </section>
+
+    <!-- 03 — OBJECTIVES -->
+    <section class="slide" id="objectives" data-index="3" data-title="Objectives" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">03 / 18 — Objectives</p>
+        <h2 class="slide-title">One general objective. Five measurable targets.</h2>
+        <p class="slide-body">
+          To design, build, and evaluate a remotely operated rescue boat capable of reaching a
+          person in the water and providing real-time visual feedback to its operator, without
+          requiring the operator to enter the water.
+        </p>
+        <div class="objective-grid">
+          <div class="objective-card"><span class="objective-index">01</span><h3>Hull &amp; Propulsion</h3><p>Design a stable, buoyant twin-hull platform with sufficient thrust to fight moderate current and carry a victim's grip weight.</p></div>
+          <div class="objective-card"><span class="objective-index">02</span><h3>FPV Vision</h3><p>Integrate a low-latency onboard camera and video transmitter so the pilot can navigate purely from the live feed.</p></div>
+          <div class="objective-card"><span class="objective-index">03</span><h3>Reliable Control Link</h3><p>Establish a long-range RF control link that remains responsive under real-world interference.</p></div>
+          <div class="objective-card"><span class="objective-index">04</span><h3>Rescue Payload</h3><p>Fit a flotation/tow mechanism and water pump so a victim can hold on and be guided back to shore.</p></div>
+          <div class="objective-card"><span class="objective-index">05</span><h3>Field Validation</h3><p>Test the completed prototype under controlled water conditions and document performance against each target.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 — EXISTING SOLUTIONS -->
+    <section class="slide" id="existing" data-index="4" data-title="Existing Solutions" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">04 / 18 — Existing Solutions</p>
+        <h2 class="slide-title">What's already out there — and where it falls short.</h2>
+        <div class="compare-grid">
+          <div class="compare-card">
+            <h3>Manned rescue boats</h3>
+            <p>Fast and capable, but require a trained crew, fuel, mooring, and minutes of response time — and still place a human on the water.</p>
+          </div>
+          <div class="compare-card">
+            <h3>Throw-line &amp; rescue buoys</h3>
+            <p>Simple and cheap, but limited by throwing distance and offer no active propulsion once released.</p>
+          </div>
+          <div class="compare-card">
+            <h3>Aerial rescue drones</h3>
+            <p>Excellent overview footage and fast deployment, but cannot physically support a victim's weight or tow them to shore.</p>
+          </div>
+          <div class="compare-card">
+            <h3>Commercial RC lifebuoys</h3>
+            <p>The closest analogue to this project — motorised flotation devices exist commercially, but are typically single-purpose, costly, and lack an integrated FPV feed for precision piloting in poor visibility.</p>
+          </div>
+        </div>
+        <p class="slide-body">
+          The gap this project targets: a platform that is <em>driven</em> like a vehicle rather than
+          thrown like an object, piloted by sight rather than guesswork, and inexpensive enough for
+          a single lifeguard station to own outright.
+        </p>
+      </div>
+    </section>
+
+    <!-- 05 — OUR SOLUTION -->
+    <section class="slide" id="solution" data-index="5" data-title="Our Solution" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">05 / 18 — Our Solution</p>
+        <h2 class="slide-title">A twin-hull FPV rescue vessel, piloted like a vehicle, deployed like a life ring.</h2>
+        <p class="slide-body">
+          The proposed system pairs a lightweight catamaran-style hull with twin brushless
+          thrusters, a stabilised FPV camera, and a rescue-grade flotation collar around the
+          bow. An operator on shore watches the live video feed on a monitor or FPV goggles
+          and drives the boat directly alongside the victim, who grips the flotation collar
+          while the pilot brings them back to shallow water.
+        </p>
+        <div class="feature-row">
+          <div class="feature-pill">Real-time FPV piloting</div>
+          <div class="feature-pill">Twin-thruster manoeuvrability</div>
+          <div class="feature-pill">Victim flotation collar</div>
+          <div class="feature-pill">Onboard rescue pump</div>
+          <div class="feature-pill">Rechargeable LiPo power</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 — BOAT OVERVIEW -->
+    <section class="slide" id="overview" data-index="6" data-title="Boat Overview" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">06 / 18 — Boat Overview</p>
+        <h2 class="slide-title">The complete platform, at a glance.</h2>
+        <p class="slide-body">
+          The hull is a shallow-draft twin-pontoon design chosen for stability over speed — the
+          boat needs to stay upright while a frightened victim grabs and pulls on it. All
+          electronics sit in a sealed deck box above the waterline, isolated from the pump and
+          motor wiring below.
+        </p>
+        <div class="spec-grid spec-grid-wide">
+          <div class="spec-item"><span class="spec-value">70 cm</span><span class="spec-label">Hull length</span></div>
+          <div class="spec-item"><span class="spec-value">42 cm</span><span class="spec-label">Beam width</span></div>
+          <div class="spec-item"><span class="spec-value">3.4 kg</span><span class="spec-label">All-up weight</span></div>
+          <div class="spec-item"><span class="spec-value">IP-rated</span><span class="spec-label">Sealed electronics deck</span></div>
+          <div class="spec-item"><span class="spec-value">2×</span><span class="spec-label">Brushless thrusters</span></div>
+          <div class="spec-item"><span class="spec-value">~25 kg</span><span class="spec-label">Rated tow capacity</span></div>
+        </div>
+        <p class="slide-hint">Scroll to Section 08 to watch the platform assemble component by component.</p>
+      </div>
+    </section>
+
+    <!-- 07 — COMPONENTS -->
+    <section class="slide" id="components" data-index="7" data-title="Components" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">07 / 18 — Components</p>
+        <h2 class="slide-title">Nine subsystems, one hull.</h2>
+        <p class="slide-body">Tap any component to open its full specification card.</p>
+        <div class="component-tag-grid">
+          <button class="component-tag" data-component="hull">Hull &amp; Pontoons</button>
+          <button class="component-tag" data-component="deck">Electronics Deck</button>
+          <button class="component-tag" data-component="controller">Flight Controller</button>
+          <button class="component-tag" data-component="esc">ESC &amp; Wiring</button>
+          <button class="component-tag" data-component="fpv">FPV Camera</button>
+          <button class="component-tag" data-component="antenna">RF Receiver</button>
+          <button class="component-tag" data-component="pump">Rescue Pump</button>
+          <button class="component-tag" data-component="battery">LiPo Battery</button>
+          <button class="component-tag" data-component="thrusters">Propulsion Thrusters</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08 — BOAT ASSEMBLY ANIMATION -->
+    <section class="slide slide-assembly" id="assembly" data-index="8" data-title="Boat Assembly Animation" data-camera="assembly">
+      <div class="slide-inner slide-inner-assembly">
+        <p class="slide-eyebrow">08 / 18 — Boat Assembly Animation</p>
+        <h2 class="slide-title">Watch the platform build itself.</h2>
+        <p class="slide-body">Every component flies in, rotates into orientation, and locks into place with a confirmation glow.</p>
+        <button id="btn-assemble" class="assemble-btn">
+          <span class="start-btn-glow"></span>
+          <span id="assemble-btn-label">Assemble Boat</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 09 — WORKING PRINCIPLE -->
+    <section class="slide" id="working" data-index="9" data-title="Working Principle" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">09 / 18 — Working Principle</p>
+        <h2 class="slide-title">Pilot input to propeller thrust in under one radio frame.</h2>
+        <p class="slide-body">
+          The operator's control inputs and the boat's video feed travel over two independent
+          radio links so a lost video signal never means lost control.
+        </p>
+        <div class="flow-diagram">
+          <div class="flow-node">Operator Controller</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">RF Control Link</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">Onboard Receiver</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">Flight Controller</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">ESCs → Thrusters</div>
+        </div>
+        <div class="flow-diagram flow-diagram-secondary">
+          <div class="flow-node flow-node-alt">FPV Camera</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node flow-node-alt">Video Transmitter</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node flow-node-alt">Goggles / Monitor</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 — ELECTRONICS -->
+    <section class="slide" id="electronics" data-index="10" data-title="Electronics" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">10 / 18 — Electronics</p>
+        <h2 class="slide-title">The nervous system beneath the deck.</h2>
+        <p class="slide-body">
+          A microcontroller-based flight controller reads the RF receiver and translates stick
+          input into differential thrust between the two motors, allowing the boat to spin
+          tightly on the spot. Electronic speed controllers (ESCs) regulate motor power from the
+          shared LiPo bus, while a buck converter steps power down for the camera and receiver.
+        </p>
+        <button class="component-tag component-tag-inline" data-component="controller">View flight controller specification →</button>
+      </div>
+    </section>
+
+    <!-- 11 — FPV CAMERA SYSTEM -->
+    <section class="slide" id="fpv-section" data-index="11" data-title="FPV Camera System" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">11 / 18 — FPV Camera System</p>
+        <h2 class="slide-title">Seeing through the boat's eyes, not the shoreline's.</h2>
+        <p class="slide-body">
+          A forward-facing, wide-angle camera sits on a shock-mounted bracket above the bow,
+          feeding a low-latency analog video transmitter. The pilot watches this feed on FPV
+          goggles or a ground-station monitor, giving a first-person perspective that keeps the
+          victim centred in frame even in waves or low light.
+        </p>
+        <button class="component-tag component-tag-inline" data-component="fpv">View FPV camera specification →</button>
+      </div>
+    </section>
+
+    <!-- 12 — REMOTE CONTROLLER -->
+    <section class="slide" id="controller-section" data-index="12" data-title="Remote Controller" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">12 / 18 — Remote Controller</p>
+        <h2 class="slide-title">Two sticks. Zero training curve.</h2>
+        <p class="slide-body">
+          The handheld transmitter uses a familiar dual-stick layout — one axis for throttle and
+          steering, the other reserved for the pump and flotation-release toggle — so a lifeguard
+          can operate it confidently after a five-minute briefing.
+        </p>
+        <button class="component-tag component-tag-inline" data-component="antenna">View RF receiver specification →</button>
+      </div>
+    </section>
+
+    <!-- 13 — WATER PUMP -->
+    <section class="slide" id="pump-section" data-index="13" data-title="Water Pump" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">13 / 18 — Water Pump</p>
+        <h2 class="slide-title">A small pump with an outsized job.</h2>
+        <p class="slide-body">
+          A submersible bilge-style pump serves two roles: keeping the sealed hull compartments
+          dry, and — via a diverter valve — powering a jet outlet that can nudge a conscious
+          victim toward the flotation collar without the hull making direct contact.
+        </p>
+        <button class="component-tag component-tag-inline" data-component="pump">View pump specification →</button>
+      </div>
+    </section>
+
+    <!-- 14 — BATTERY -->
+    <section class="slide" id="battery-section" data-index="14" data-title="Battery" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">14 / 18 — Battery</p>
+        <h2 class="slide-title">Enough charge to matter, light enough to float.</h2>
+        <p class="slide-body">
+          A single high-discharge LiPo pack powers propulsion, electronics, the camera link, and
+          the pump from one balanced bus, with a low-voltage cutoff that protects cell health and
+          warns the pilot well before the boat loses thrust.
+        </p>
+        <button class="component-tag component-tag-inline" data-component="battery">View battery specification →</button>
+      </div>
+    </section>
+
+    <!-- 15 — PROPULSION SYSTEM -->
+    <section class="slide" id="propulsion-section" data-index="15" data-title="Propulsion System" data-camera="orbit-close">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">15 / 18 — Propulsion System</p>
+        <h2 class="slide-title">Twin thrusters, tight turns, guarded props.</h2>
+        <p class="slide-body">
+          Independent brushless thrusters in shrouded, finger-safe housings give the boat
+          tank-style steering — full-speed reverse on one side and forward on the other lets it
+          rotate in place to keep the camera trained on a moving victim.
+        </p>
+        <button class="component-tag component-tag-inline" data-component="thrusters">View propulsion specification →</button>
+      </div>
+    </section>
+
+    <!-- 16 — ADVANTAGES -->
+    <section class="slide" id="advantages" data-index="16" data-title="Advantages" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">16 / 18 — Advantages</p>
+        <h2 class="slide-title">Why this approach earns its place on the dock.</h2>
+        <div class="advantage-grid">
+          <div class="advantage-card"><h3>No rescuer in the water</h3><p>The pilot stays on shore for the entire operation.</p></div>
+          <div class="advantage-card"><h3>Rapid deployment</h3><p>Launch-ready in seconds from a dock-side cradle.</p></div>
+          <div class="advantage-card"><h3>Works in low visibility</h3><p>FPV camera keeps the victim in frame after dark.</p></div>
+          <div class="advantage-card"><h3>Low cost, high reuse</h3><p>Built from accessible RC-grade components.</p></div>
+          <div class="advantage-card"><h3>Simple to operate</h3><p>Familiar dual-stick control needs minimal training.</p></div>
+          <div class="advantage-card"><h3>Repeatable &amp; testable</h3><p>Can be drilled regularly without endangering staff.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17 — FUTURE IMPROVEMENTS -->
+    <section class="slide" id="future" data-index="17" data-title="Future Improvements" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">17 / 18 — Future Improvements</p>
+        <h2 class="slide-title">What version two looks like.</h2>
+        <ul class="bullet-list">
+          <li>GPS waypoint return-to-shore mode for signal-loss failsafe.</li>
+          <li>Computer-vision assisted victim tracking to keep the camera locked on target.</li>
+          <li>Thermal imaging for night and low-visibility search operations.</li>
+          <li>Digital, encrypted video and control links for longer, more reliable range.</li>
+          <li>Multi-boat swarm coordination for large-scale search patterns.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 18 — CONCLUSION -->
+    <section class="slide" id="conclusion" data-index="18" data-title="Conclusion" data-camera="orbit-wide">
+      <div class="slide-inner">
+        <p class="slide-eyebrow">18 / 18 — Conclusion</p>
+        <h2 class="slide-title">A small boat, built to make sure everyone comes home.</h2>
+        <p class="slide-body">
+          This project demonstrates that a remotely operated FPV rescue boat is a practical,
+          affordable way to shorten the most dangerous minutes of a water emergency — removing
+          the rescuer from the hazard, not the rescue from the response. The completed prototype
+          validates the core hypothesis: distance and visibility no longer have to stand between
+          a person in trouble and the help on its way.
+        </p>
+        <p class="slide-body slide-body-strong">Thank you.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= COMPONENT INFO CARD OVERLAY ================= -->
+  <div id="info-card-overlay" aria-hidden="true">
+    <div id="info-card" role="dialog" aria-modal="true">
+      <button id="info-card-close" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M5 5 L19 19 M19 5 L5 19"/></svg>
+      </button>
+      <p class="info-card-eyebrow" id="info-card-eyebrow">Component</p>
+      <h3 class="info-card-title" id="info-card-title">—</h3>
+      <p class="info-card-desc" id="info-card-desc">—</p>
+      <div class="info-card-specs" id="info-card-specs"></div>
+    </div>
+  </div>
+
+  <!-- ================= LABEL / ARROW LAYER (populated by JS) ================= -->
+  <div id="label-layer" aria-hidden="true"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
